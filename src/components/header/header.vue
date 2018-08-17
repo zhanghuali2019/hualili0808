@@ -20,7 +20,7 @@ export default {}
     display: table
     vertical-align: top
     line-height: 13vw
-    font-size: $font-size-large-x
+    font-size: 4.5vw
     margin: 0 auto
     color: $color-theme
   }
