@@ -69,6 +69,7 @@ export default {
   methods: {
     selectItem(item) {
       this.$emit('select', item)
+      console.log(this.data)
     },
     onShortcutTouchstart(e) {
       let anchorIndex = getData(e.target, 'index')

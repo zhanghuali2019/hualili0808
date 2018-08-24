@@ -13,7 +13,7 @@
           <p class="subtitle" v-html="currentSong.singer"></p>
         </div>
         <div class="middle" @click="changePage">
-          <div class="middle-l" v-show="!currentShow">
+          <div class="middle-l" v-show="currentShow">
             <div class="cd-wrapper">
               <div class="cd" :class="cdCls">
                 <img class="image" :src="currentSong.image">
@@ -23,9 +23,9 @@
               <div class="playing-lyric">{{playingLyric}}</div>
             </div>
           </div>
-          <scroll class="middle-r" ref="lyricList" :data="currentLyric && currentLyric.lines" v-show="currentShow">
+          <scroll @changePage="changePage" class="middle-r" ref="lyricList" :data="currentLyric && currentLyric.lines" v-show="!currentShow">
             <div class="lyric-wrapper">
-              <div v-if="currentLyric" @click="changePage">
+              <div v-if="currentLyric">
                 <p :class="{'current':currentLineNum === index}" ref="lyricLine" class="text" v-for="(line, index) in currentLyric.lines" :key="index">{{line.txt}}</p>
               </div>
             </div>
@@ -53,7 +53,7 @@
               <i @click="next" class="icon-next"></i>
             </div>
             <div class="icon i-right">
-              <i class="icon icon-not-favorite"></i>
+              <i class="icon" :class="getFavoriteIcon(currentSong)" @click="toggleFavorite(currentSong)"></i>
             </div>
           </div>
         </div>
@@ -73,25 +73,27 @@
             <i @click.stop="togglePlaying" class="icon-mini" :class="miniIcon"></i>
           </progress-circle>
         </div>
-        <div class="control">
+        <div class="control" @click.stop="showPlaylist">
           <i class="icon-playlist"></i>
         </div>
       </div>
     </transition>
-    <audio ref="audio" :src="currentSong.url" @canplay="ready" @error="error" @timeupdate="updatetime" @ended="end"></audio>
+    <playlist ref="playlist"></playlist>
+    <audio ref="audio" @play="ready" :src="currentSong.url" @error="error" @timeupdate="updatetime" @ended="end"></audio>
   </div>
 </template>
 
 <script type="text/ecmascript-6">
-import {mapGetters, mapMutations} from 'vuex'
+import {mapGetters, mapMutations, mapActions} from 'vuex'
 import ProgressBar from 'base/progress-bar/progress-bar'
 import ProgressCircle from 'base/progress-circle/progress-circle'
 import {playMode} from 'common/js/config'
-import {shuffle} from 'common/js/util'
 import Lyric from 'lyric-parser'
 import Scroll from 'base/scroll/scroll'
-
+import Playlist from 'components/playlist/playlist'
+import {playerMixin} from 'common/js/mixin'
 export default {
+  mixins: [playerMixin],
   data() {
     return {
       songReady: false,
@@ -99,7 +101,7 @@ export default {
       radius: 32,
       currentLyric: null,
       currentLineNum: 0,
-      currentShow: 1,
+      currentShow: 0,
       playingLyric: null
     }
   },
@@ -109,9 +111,6 @@ export default {
     },
     playIcon() {
       return this.playing ? 'icon-pause' : 'icon-play'
-    },
-    iconMode() {
-      return this.mode === playMode.sequence ? 'icon-sequence' : this.mode === playMode.loop ? 'icon-loop' : 'icon-random'
     },
     miniIcon() {
       return this.playing ? 'icon-pause-mini' : 'icon-play-mini'
@@ -124,12 +123,8 @@ export default {
     },
     ...mapGetters([
       'fullScreen',
-      'playList',
-      'currentSong',
       'playing',
-      'currentIndex',
-      'mode',
-      'sequenceList'
+      'currentIndex'
     ])
   },
   methods: {
@@ -156,6 +151,7 @@ export default {
       }
       if (this.playList.length === 1) {
         this.loop()
+        return
       } else {
         let index = this.currentIndex + 1
         if (index === this.playList.length) {
@@ -189,6 +185,7 @@ export default {
     },
     ready() {
       this.songReady = true
+      this.savePlayHistory(this.currentSong)
     },
     error() {
       this.songReady = true
@@ -226,29 +223,17 @@ export default {
         this.currentLyric.seek(0)
       }
     },
-    changeMode() {
-      const mode = (this.mode + 1) % 3
-      this.setPlayMode(mode)
-      let list = null
-      if (mode === playMode.random) {
-        list = shuffle(this.sequenceList)
-      } else {
-        list = this.sequenceList
-      }
-      this._resetCurrenIndex(list)
-      this.setPlayList(list)
-    },
     changePage() {
       this.currentShow = !this.currentShow
-    },
-    _resetCurrenIndex(list) {
-      let index = list.findIndex((item) => {
-        return item.id === this.currentSong.id
-      })
-      this.setCurrentIndex(index)
+      setTimeout(() => {
+        this.$refs.lyricList.refresh()
+      }, 20)
     },
     getLyric() {
       this.currentSong.getLyric().then((lyric) => {
+        if (this.currentSong.lyric !== lyric) {
+          return
+        }
         this.currentLyric = new Lyric(lyric, this.handleLyric)
         if (this.playing) {
           this.currentLyric.play()
@@ -270,6 +255,9 @@ export default {
       }
       this.playingLyric = txt
     },
+    showPlaylist() {
+      this.$refs.playlist.show()
+    },
     _pad(num, n = 2) {
       let len = num.toString().length
       while (len < n) {
@@ -279,22 +267,28 @@ export default {
       return num
     },
     ...mapMutations({
-      setFullScreen: 'SET_FULL_SCREEN',
-      setPlayingState: 'SET_PLAYING_STATE',
-      setCurrentIndex: 'SET_CURRENT_INDEX',
-      setPlayMode: 'SET_PLAY_MODE',
-      setPlayList: 'SET_PLAY_LIST'
-    })
+      setFullScreen: 'SET_FULL_SCREEN'
+    }),
+    ...mapActions([
+      'savePlayHistory'
+    ])
   },
   watch: {
     currentSong(newSong, oldSong) {
+      if (!newSong.id) {
+        return
+      }
       if (newSong.id === oldSong.id) {
         return
       }
       if (this.currentLyric) {
         this.currentLyric.stop()
+        this.currentTime = 0
+        this.playingLyric = ''
+        this.currentLineNum = 0
       }
-      setTimeout(() => {
+      clearTimeout(this.timer)
+      this.timer = setTimeout(() => {
         this.$refs.audio.play()
         this.getLyric()
       }, 1000)
@@ -309,7 +303,8 @@ export default {
   components: {
     ProgressBar,
     ProgressCircle,
-    Scroll
+    Scroll,
+    Playlist
   }
 }
 </script>

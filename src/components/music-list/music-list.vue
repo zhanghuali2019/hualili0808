@@ -4,7 +4,7 @@
       <span class="icon-back"></span>
     </div>
     <p class="title" v-html="title"></p>
-    <div class="bg-image" :style="bgStyle" ref="bgImage">
+    <div ref="bgImage" class="bg-image" :style="bgStyle">
       <div class="play-wrapper">
         <div class="play" v-show="songs.length>0" ref="play" @click="random">
           <i class="icon-play"></i>
@@ -16,7 +16,7 @@
     <div class="bg-layer" ref="layer"></div>
     <scroll @scroll="scroll" :probe-type="probeType" :listen-scroll="listenScroll" :data="songs" class="list" ref="list">
       <div class="song-list-wrapper">
-        <song-list @select="selectItem" :songs="songs"></song-list>
+        <song-list @select="selectItem" :songs="songs" :rank="rank"></song-list>
       </div>
       <div class="loading-container" v-show="!songs.length">
         <loading></loading>
@@ -43,11 +43,15 @@ export default{
     },
     songs: {
       type: Array,
-      default: null
+      default: () => { return [] }
     },
     title: {
       type: String,
       default: ''
+    },
+    rank: {
+      type: Boolean,
+      default: false
     }
   },
   data() {
@@ -74,6 +78,7 @@ export default{
       this.scrollY = pos.y
     },
     back() {
+      console.log(this.songs)
       this.$router.back()
     },
     selectItem(item, index) {
@@ -99,14 +104,14 @@ export default{
       let zIndex = 0
       let scale = 1
       let blur = 0
-      this.$refs.layer.style[transform] = `translate3d(0, ${translateY}px, 0)`
       const percent = Math.abs(newY / this.imageHeight)
       if (newY > 0) {
         scale = 1 + percent
         zIndex = 10
       } else {
-        blur = Math.min(20 * percent)
+        blur = Math.min(20, 20 * percent)
       }
+      this.$refs.layer.style[transform] = `translate3d(0, ${translateY}px, 0)`
       this.$refs.filter.style[backdrop] = `blur(${blur})px`
       if (newY < this.minTranslateY) {
         zIndex = 10

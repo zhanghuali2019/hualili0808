@@ -14,21 +14,33 @@ export default {
     },
     click: {
       type: Boolean,
-      default: true
+      default: false
     },
     data: {
       type: Array,
-      default: null
+      default: () => { return [] }
     },
     listenScroll: {
       type: Boolean,
       default: false
+    },
+    pullup: {
+      type: Boolean,
+      default: false
+    },
+    beforeScroll: {
+      type: Boolean,
+      default: false
+    },
+    refreshDelay: {
+      type: Number,
+      default: 20
     }
   },
   mounted() {
     setTimeout(() => {
       this._initScroll()
-    }, 20)
+    }, this.refreshDelay)
   },
   methods: {
     _initScroll() {
@@ -43,6 +55,18 @@ export default {
         let me = this
         this.scroll.on('scroll', (pos) => {
           me.$emit('scroll', pos)
+        })
+      }
+      if (this.pullup) {
+        this.scroll.on('scrollEnd', () => {
+          if (this.scroll.y <= (this.scroll.maxScrollY + 50)) {
+            this.$emit('scrollToEnd')
+          }
+        })
+      }
+      if (this.beforeScroll) {
+        this.scroll.on('beforeScrollStart', () => {
+          this.$emit('beforeScroll')
         })
       }
     },
@@ -72,6 +96,6 @@ export default {
 }
 </script>
 
-<style scoped>
+<style scoped lang="stylus" rel="stylesheet/stylus">
 
 </style>

@@ -1,6 +1,9 @@
 <template>
  <div class="header">
    <div class="text">团子音乐</div>
+   <router-link to="/user" class="mine" tag="div">
+     <i class="icon-mine"></i>
+   </router-link>
  </div>
 </template>
 
